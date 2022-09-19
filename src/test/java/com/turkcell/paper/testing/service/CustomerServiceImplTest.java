@@ -61,9 +61,7 @@ public class CustomerServiceImplTest {
 
     @Test(expected = InvalidCustomerRequestException.class)
     public void throwExceptionWhenNotificationEmailExists() {
-        CustomerDTO customerDTO = new CustomerDTO();
-        customerDTO.setNotificationEmail("test@turkcell.com");
-        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        CustomerDTO customerDTO = getTestCustomerDTO();
         customerService.save(customerDTO);
     }
 
@@ -71,6 +69,14 @@ public class CustomerServiceImplTest {
     public void throwExceptionWhenNotificationEmailNotValid() {
         CustomerDTO customerDTO = new CustomerDTO();
         customerDTO.setNotificationEmail("invalid.com");
+        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        customerService.save(customerDTO);
+    }
+
+    @Test(expected = InvalidCustomerRequestException.class)
+    public void throwExceptionWhenNotificationEmailNull() {
+        CustomerDTO customerDTO = new CustomerDTO();
+        customerDTO.setNotificationEmail(null);
         customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
         customerService.save(customerDTO);
     }
@@ -100,4 +106,12 @@ public class CustomerServiceImplTest {
         customerService.deleteById(1L);
         verify(customerRepository, times(1)).deleteById(1L);
     }
+
+    private CustomerDTO getTestCustomerDTO() {
+        CustomerDTO customerDTO = new CustomerDTO();
+        customerDTO.setNotificationEmail("test@turkcell.com");
+        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        return customerDTO;
+    }
+
 }
