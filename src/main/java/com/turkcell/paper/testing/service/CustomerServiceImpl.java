@@ -1,90 +1,150 @@
 package com.turkcell.paper.testing.service;
 
+import com.turkcell.paper.testing.dto.ContactUsDTO;
 import com.turkcell.paper.testing.dto.CustomerDTO;
-import com.turkcell.paper.testing.entity.Customer;
-import com.turkcell.paper.testing.exception.CustomerNotFoundException;
+import com.turkcell.paper.testing.dto.UpdateCustomerDTO;
 import com.turkcell.paper.testing.exception.InvalidCustomerRequestException;
-import com.turkcell.paper.testing.repository.CustomerRepository;
 import com.turkcell.paper.testing.util.EmailUtil;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class CustomerServiceImpl implements CustomerService {
 
-    private final CustomerRepository customerRepository;
+    @Autowired
+    private JavaMailSender javaMailSender;
 
-    public CustomerServiceImpl(CustomerRepository customerRepository) {
-        this.customerRepository = customerRepository;
+    private final CustomerServiceDBConnect customerServiceDBConnect;
+
+    public CustomerServiceImpl( CustomerServiceDBConnect customerServiceDBConnect) {
+        this.customerServiceDBConnect = customerServiceDBConnect;
     }
 
     @Override
-    public CustomerDTO save(CustomerDTO customerDTO) {
+    public CustomerDTO save(CustomerDTO customerDTO) throws SQLException {
         this.validateSave(customerDTO);
-        return toDto(customerRepository.save(toEntity(customerDTO)));
+//        return toDto(customerRepository.save(toEntity(customerDTO)));
+        return customerServiceDBConnect.save(customerDTO);
+
     }
 
-    private void validateSave(CustomerDTO customerDTO) {
-        validateId(customerDTO);
-        validateNotificationEmail(customerDTO);
-        validateNotificationEmailExistance(customerDTO);
+    @Override
+    public CustomerDTO update(UpdateCustomerDTO updateCustomerDTO) throws SQLException {
+        this.validateUpdate(updateCustomerDTO);
+        return customerServiceDBConnect.update(updateCustomerDTO);
     }
 
-    private void validateNotificationEmail(CustomerDTO customerDTO) {
-        if (!EmailUtil.validate(customerDTO.getNotificationEmail())) {
-            throw new InvalidCustomerRequestException("Notification email is not valid");
+    @Override
+    public void contactUs(@NotNull ContactUsDTO contactUsDTO){
+        SimpleMailMessage mailMessage = new SimpleMailMessage();
+        mailMessage.setTo("souvikchoudhury14@gmail.com");
+        mailMessage.setSubject("Question related to Infinity Tech Resource");
+        mailMessage.setText("Name: " + contactUsDTO.getFirstName() + " " +
+                contactUsDTO.getLastName() + "\nEmail: " + contactUsDTO.getEmail() +
+                "\nMessage: " + contactUsDTO.getMessage()
+        );
+        javaMailSender.send(mailMessage);
+    }
+
+    @Override
+    public CustomerDTO login(CustomerDTO customerDTO) throws SQLException {
+        return customerServiceDBConnect.login(customerDTO);
+    }
+
+    private void validateSave(CustomerDTO customerDTO) throws SQLException {
+        validateId(customerDTO.getId());
+        validateEmail(customerDTO.getEmail());
+        validateEmailExistence(customerDTO.getEmail());
+        notNullCheckForSignUp(customerDTO);
+    }
+
+    private void validateUpdate(UpdateCustomerDTO updateCustomerDTO) throws SQLException {
+        validateEmail(updateCustomerDTO.getEmail());
+        notNullCheck(updateCustomerDTO);
+        validatePassWords(updateCustomerDTO);
+        validateEmailExistenceForUpdate(updateCustomerDTO.getEmail() , String.valueOf(updateCustomerDTO.getId()));
+    }
+
+    private void validatePassWords(UpdateCustomerDTO updateCustomerDTO) throws SQLException {
+        if(updateCustomerDTO.getIsChangePassword()){
+            if(updateCustomerDTO.getNewPassword().equals(updateCustomerDTO.getOldPassword())) {
+                throw new InvalidCustomerRequestException("New Password cannot be same as old password");
+            }
+            else if(!updateCustomerDTO.getNewPassword().equals(updateCustomerDTO.getConfPassword())){
+                throw new InvalidCustomerRequestException("New Password and confirm Password do not match");
+            }
+            else if(!customerServiceDBConnect.isValidOldPass(updateCustomerDTO)){
+                throw new InvalidCustomerRequestException("Invalid Old Password");
+            }
+        }
+    }
+    private void notNullCheck(UpdateCustomerDTO updateCustomerDTO){
+        if(updateCustomerDTO.getEmail() == null || updateCustomerDTO.getEmail().isEmpty() ) {
+            throw new InvalidCustomerRequestException("Email cannot be empty");
+        }
+        else if(updateCustomerDTO.getUsername() == null || updateCustomerDTO.getUsername().isEmpty() ) {
+            throw new InvalidCustomerRequestException("Username cannot be empty");
+        }
+        else if(updateCustomerDTO.getIsChangePassword() && (updateCustomerDTO.getNewPassword() == null ||
+                    updateCustomerDTO.getNewPassword().isEmpty() ||
+                    updateCustomerDTO.getOldPassword() == null ||
+                    updateCustomerDTO.getOldPassword().isEmpty() ||
+                    updateCustomerDTO.getConfPassword() == null ||
+                    updateCustomerDTO.getConfPassword().isEmpty()
+        )) {
+            throw new InvalidCustomerRequestException("Passwords cannot be empty if you chose to change password. Click 'Go Back' to not change the password");
+
         }
     }
 
-    private void validateNotificationEmailExistance(CustomerDTO customerDTO) {
-        if (isCustomerExist(customerDTO)) {
-            throw new InvalidCustomerRequestException("Notification email has already used with the customer type");
+    private void notNullCheckForSignUp(CustomerDTO customerDTO) {
+        if (customerDTO.getEmail() == null ||
+                customerDTO.getEmail().isEmpty() ||
+                customerDTO.getUsername() == null ||
+                customerDTO.getUsername().isEmpty() ||
+                customerDTO.getPassword() == null ||
+                customerDTO.getPassword().isEmpty()
+        ) {
+            throw new InvalidCustomerRequestException("All fields are mandatory");
         }
     }
 
-    private void validateId(CustomerDTO customerDTO) {
-        if (customerDTO.getId() != null) {
-            throw new InvalidCustomerRequestException("Customer ID must be null while saving");
+    private void validateEmail(String email) {
+        if (!EmailUtil.validate(email)) {
+            throw new InvalidCustomerRequestException("Email is not valid");
+        }
+    }
+
+    private void validateEmailExistence(String email) throws SQLException {
+        if (isCustomerExist(email)) {
+            throw new InvalidCustomerRequestException("Email has been already used.");
+        }
+    }
+
+    private void validateEmailExistenceForUpdate(String email , String id) throws  SQLException {
+        if(customerServiceDBConnect.checkEmailAlreadyExistsForUpdate(email, id)){
+            throw new InvalidCustomerRequestException("Email has been already used.");
+        }
+    }
+
+    private void validateId(Long id) {
+        if (id != null) {
+            throw new InvalidCustomerRequestException("User ID must be null while registering");
         }
     }
 
     @Override
-    public CustomerDTO getById(Long id) {
-        return customerRepository.findById(id).map(this::toDto)
-                .orElseThrow(() -> new CustomerNotFoundException(id));
+    public List<CustomerDTO> getAll() throws SQLException {
+        return customerServiceDBConnect.getAll();
     }
 
-    @Override
-    public List<CustomerDTO> getAll() {
-        return customerRepository.findAll().stream().map(this::toDto).collect(Collectors.toList());
-    }
-
-    @Override
-    public void deleteById(Long id) {
-        this.getById(id);
-        customerRepository.deleteById(id);
-    }
-
-    public CustomerDTO toDto(Customer entity) {
-        CustomerDTO dto = new CustomerDTO();
-        dto.setId(entity.getId());
-        dto.setCustomerType(entity.getCustomerType());
-        dto.setNotificationEmail(entity.getNotificationEmail());
-        return dto;
-    }
-
-    public Customer toEntity(CustomerDTO dto) {
-        Customer entity = new Customer();
-        entity.setId(dto.getId());
-        entity.setCustomerType(dto.getCustomerType());
-        entity.setNotificationEmail(dto.getNotificationEmail());
-        return entity;
-    }
-
-    public boolean isCustomerExist(CustomerDTO dto) {
-        return customerRepository.existsByNotificationEmailAndCustomerType(dto.getNotificationEmail(), dto.getCustomerType());
+    public boolean isCustomerExist(String email) throws SQLException {
+        return customerServiceDBConnect.checkEmailAlreadyExists(email);
     }
 }

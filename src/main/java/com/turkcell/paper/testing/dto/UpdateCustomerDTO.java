@@ -7,11 +7,14 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CustomerDTO {
+public class UpdateCustomerDTO {
     private Long id;
     private String username;
     private String email;
-    private String password;
+    private String newPassword;
     private String profile_pic;
+    private String oldPassword;
+    private String confPassword;
+    private Boolean isChangePassword;
     private String user_role;
 }

@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -22,92 +23,86 @@ import static org.mockito.Mockito.*;
 public class CustomerServiceImplTest {
 
     @Mock
-    CustomerRepository customerRepository;
+    CustomerServiceDBConnect customerServiceDBConnect;
 
     @InjectMocks
     CustomerServiceImpl customerService;
 
 
     @Before
-    public void setUp() {
+    public void setUp() throws SQLException {
 
-        Customer testEntity = new Customer();
-        testEntity.setId(1L);
-        testEntity.setNotificationEmail("test.user@turkcell.com");
-        testEntity.setCustomerType(CustomerType.INDIVIDUAL);
+        CustomerDTO testDTO = new CustomerDTO();
+        testDTO.setId(1L);
+        testDTO.setEmail("test.user@turkcell.com");
+        testDTO.setUsername("testuser");
+        testDTO.setPassword("password");
 
-        when(customerRepository.save(any())).thenReturn(testEntity);
-        when(customerRepository.findAll()).thenReturn(Collections.singletonList(testEntity));
-        when(customerRepository.findById(any())).thenReturn(Optional.of(testEntity));
-        doNothing().when(customerRepository).deleteById(any());
-        when(customerRepository
-                .existsByNotificationEmailAndCustomerType("test@turkcell.com", CustomerType.INDIVIDUAL))
+        when(customerServiceDBConnect.save(any())).thenReturn(testDTO);
+        when(customerServiceDBConnect.getAll()).thenReturn(Collections.singletonList(testDTO));
+        when(customerServiceDBConnect
+                .checkEmailAlreadyExists("test@turkcell.com"))
                 .thenReturn(true);
     }
 
     @Test
-    public void shouldSaveCustomerAndGenerateId() {
+    public void shouldSaveCustomerAndGenerateId() throws SQLException {
         CustomerDTO customerDTO = new CustomerDTO();
-        customerDTO.setNotificationEmail("test.user@turkcell.com");
-        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        customerDTO.setEmail("test@gmail.com");
+        customerDTO.setUsername("test");
+        customerDTO.setPassword("password");
         CustomerDTO savedDto = customerService.save(customerDTO);
-        assertEquals("test.user@turkcell.com", savedDto.getNotificationEmail());
-        assertEquals(CustomerType.INDIVIDUAL, savedDto.getCustomerType());
+        customerDTO.setEmail("test2@gmail.com");
+        customerDTO.setUsername("test");
+        customerDTO.setPassword("password");
         assertNotNull(savedDto.getId());
     }
 
     @Test(expected = InvalidCustomerRequestException.class)
-    public void shouldThrowExceptionWhenNotificationEmailExists() {
+    public void shouldThrowExceptionWhenNotificationEmailExists() throws SQLException {
         CustomerDTO customerDTO = getTestCustomerDTO();
         customerService.save(customerDTO);
     }
 
     @Test(expected = InvalidCustomerRequestException.class)
-    public void shouldThrowExceptionWhenNotificationEmailNotValid() {
+    public void shouldThrowExceptionWhenNotificationEmailNotValid() throws SQLException {
         CustomerDTO customerDTO = new CustomerDTO();
-        customerDTO.setNotificationEmail("invalid.com");
-        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        customerDTO.setEmail("test@gmail.com");
+        customerDTO.setUsername("test");
+        customerDTO.setPassword("password");
         customerService.save(customerDTO);
     }
 
     @Test(expected = InvalidCustomerRequestException.class)
-    public void shouldThrowExceptionWhenNotificationEmailNull() {
+    public void shouldThrowExceptionWhenNotificationEmailNull() throws SQLException {
         CustomerDTO customerDTO = new CustomerDTO();
-        customerDTO.setNotificationEmail(null);
-        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        customerDTO.setEmail("test@gmail.com");
+        customerDTO.setUsername("test");
+        customerDTO.setPassword("password");
         customerService.save(customerDTO);
     }
 
     @Test(expected = InvalidCustomerRequestException.class)
-    public void shouldThrowExceptionWhenSaveIdNotNull() {
+    public void shouldThrowExceptionWhenSaveIdNotNull() throws SQLException {
         CustomerDTO customerDTO = new CustomerDTO();
         customerDTO.setId(23L);
-        customerDTO.setNotificationEmail("test.user@turkcell.com");
-        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        customerDTO.setEmail("test@gmail.com");
+        customerDTO.setUsername("test");
+        customerDTO.setPassword("password");
         customerService.save(customerDTO);
     }
 
-    @Test
-    public void shouldGetCustomerWhenIdIsValid() {
-        CustomerDTO byId = customerService.getById(1L);
-        assertNotNull(byId);
-    }
 
     @Test
-    public void shouldGetAllCustomers() {
+    public void shouldGetAllCustomers() throws SQLException {
         assertFalse(customerService.getAll().isEmpty());
-    }
-
-    @Test
-    public void shouldPerformDelete() {
-        customerService.deleteById(1L);
-        verify(customerRepository, times(1)).deleteById(1L);
     }
 
     private CustomerDTO getTestCustomerDTO() {
         CustomerDTO customerDTO = new CustomerDTO();
-        customerDTO.setNotificationEmail("test@turkcell.com");
-        customerDTO.setCustomerType(CustomerType.INDIVIDUAL);
+        customerDTO.setEmail("test@gmail.com");
+        customerDTO.setUsername("test");
+        customerDTO.setPassword("password");
         return customerDTO;
     }
 

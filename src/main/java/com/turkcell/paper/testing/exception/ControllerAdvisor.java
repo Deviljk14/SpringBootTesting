@@ -13,7 +13,7 @@ import java.util.Map;
 @ControllerAdvice
 public class ControllerAdvisor extends ResponseEntityExceptionHandler {
     @ExceptionHandler
-    public ResponseEntity<Object> handleCustomerNotFoundException(CustomerNotFoundException exception, WebRequest req) {
+    public ResponseEntity<Object> handleCustomerNotFoundException(UserNotFoundException exception, WebRequest req) {
         Map<String, Object> body = ResponseUtil.getObjectMap(exception.getMessage());
         return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
     }

@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.sql.SQLException;
 import java.util.Collections;
 
 import static org.mockito.Mockito.*;
@@ -30,21 +31,12 @@ class CustomerControllerTest {
     CustomerService customerService;
 
     @BeforeEach
-    void setUp() {
-        CustomerDTO dto = new CustomerDTO(1L, "test.user@turkcell.com", CustomerType.INDIVIDUAL);
+    void setUp() throws SQLException {
+        CustomerDTO dto = new CustomerDTO(1L, "testuser", "test.user@turkcell.com", "password");
         when(customerService.getAll()).thenReturn(Collections.singletonList(dto));
-        when(customerService.getById(1L)).thenReturn(dto);
-        doNothing().when(customerService).deleteById(any());
     }
 
-    @Test
-    void getByIdShouldReturnCustomerInfo() throws Exception {
-        mockMvc.perform(get("/api/customer/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.notificationEmail").value("test.user@turkcell.com"))
-                .andExpect(jsonPath("$.customerType").value("INDIVIDUAL"));
-    }
+
 
     @Test
     void getAllShouldReturnCustomers() throws Exception {
@@ -53,14 +45,5 @@ class CustomerControllerTest {
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].notificationEmail").value("test.user@turkcell.com"))
                 .andExpect(jsonPath("$[0].customerType").value("INDIVIDUAL"));
-    }
-
-    @Test
-    void deleteByIdShouldReturnDeletedCustomerId() throws Exception {
-        int testedId = 1;
-        mockMvc.perform(delete(String.format("/api/customer/%d", testedId)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value(String.format("The customer with ID: %d has deleted", testedId)))
-                .andExpect(jsonPath("$.time").isNotEmpty());
     }
 }
